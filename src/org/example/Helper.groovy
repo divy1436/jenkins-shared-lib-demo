@@ -1,9 +1,12 @@
 package org.example
 
 class Helper {
-    // Add 'String name' or just 'name' inside the brackets
-    static def toUpperCase(name) { 
+    static String toUpper(String name){
+        
         def n = name ?: 'there' 
         return n.toUpperCase()
+    }
+    static String readGreeting(){
+        return libraryResource('org/example/greeting,txt').trim()
     }
 }
