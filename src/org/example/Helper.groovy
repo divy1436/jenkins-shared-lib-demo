@@ -1,10 +1,9 @@
 package org.example
 
-class Helper { 
-  static String toUpperCase(String input) {
-    def n = name ?: 'there'  // Corrected spelling
-    return input.toUpperCase()
-    
-  }
-} 
-  
+class Helper {
+    // Add 'String name' or just 'name' inside the brackets
+    static def toUpperCase(name) { 
+        def n = name ?: 'there' 
+        return n.toUpperCase()
+    }
+}
