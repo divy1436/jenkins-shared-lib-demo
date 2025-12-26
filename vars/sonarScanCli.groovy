@@ -10,7 +10,7 @@ def call(Map cfg = [:]) {
     def scannerTool    = cfg.scanner        ?: 'sonar-scanner'
     def projectName    = cfg.projectName    ?: projectKey
     def projectVersion = cfg.projectVersion ?: (env.BUILD_NUMBER ?: '1')
-    def sources        = cfg.sources        ?: '.'  // Changed 'src' to '.' to be safer for root scans
+    def sources        = cfg.sources        ?: '.' 
 
     // 3. Handle Java binaries
     def binaries = cfg.binaries
@@ -19,6 +19,7 @@ def call(Map cfg = [:]) {
     }
 
     // 4. Build arguments list
+    // Use a List for better handling of spaces in arguments
     def args = [
         "-Dsonar.projectKey=${projectKey}",
         "-Dsonar.projectName=${projectName}",
@@ -30,17 +31,18 @@ def call(Map cfg = [:]) {
         args << "-Dsonar.java.binaries=${binaries}"
     }
 
-    // Add any extra properties passed in
     cfg.extraProps?.each { k, v ->
         args << "-D${k}=${v}"
     }
 
     // 5. Execution
-    // This finds the path to the sonar-scanner binary installed in Jenkins Tools
-    def scannerHome = tool name: scannerTool, type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+    // CHANGE: Simplified 'tool' call. 
+    // This works better if you have correctly named the tool in 'Global Tool Configuration'
+    def scannerHome = tool scannerTool
     
-    // This injects the SONAR_HOST_URL and SONAR_AUTH_TOKEN from Jenkins System Config
+    // Ensure the scannerHome is added to PATH or called directly
     withSonarQubeEnv(serverName) {
+        // Use double quotes for the whole string to allow variable expansion
         sh "${scannerHome}/bin/sonar-scanner ${args.join(' ')}"
     }
 }
