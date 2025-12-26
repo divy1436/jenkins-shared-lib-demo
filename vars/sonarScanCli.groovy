@@ -1,38 +1,46 @@
 def call(Map cfg = [:]) {
-  // --- Required input ---
-  def projectKey = cfg.projectKey
-  if (!projectKey) { error "sonarScan: 'projectKey' is required" }
+    // 1. Validate required input
+    def projectKey = cfg.projectKey
+    if (!projectKey) { 
+        error "sonarScan: 'projectKey' is required. Example: sonarScan(projectKey: 'my-repo')" 
+    }
 
-  // --- Simple inputs with sane defaults ---
-  def serverName     = cfg.server        ?: 'sonar'          // Jenkins > System > SonarQube servers (Name)
-  def scannerTool    = cfg.scanner       ?: 'sonar-scanner'  // Jenkins > Tools > SonarQube Scanner (Name)
-  def projectName    = cfg.projectName   ?: projectKey
-  def projectVersion = cfg.projectVersion ?: (env.BUILD_NUMBER ?: '1')
-  def sources        = cfg.sources       ?: 'src'
+    // 2. Setup defaults
+    def serverName     = cfg.server         ?: 'sonar'
+    def scannerTool    = cfg.scanner        ?: 'sonar-scanner'
+    def projectName    = cfg.projectName    ?: projectKey
+    def projectVersion = cfg.projectVersion ?: (env.BUILD_NUMBER ?: '1')
+    def sources        = cfg.sources        ?: '.'  // Changed 'src' to '.' to be safer for root scans
 
-  // --- Java binaries: only if explicitly provided OR typical Maven folder exists ---
-  def binaries = cfg.binaries
-  if (!binaries && fileExists('target/classes')) {
-    binaries = 'target/classes'
-  }
+    // 3. Handle Java binaries
+    def binaries = cfg.binaries
+    if (!binaries && fileExists('target/classes')) {
+        binaries = 'target/classes'
+    }
 
-  // --- Build CLI flags ---
-  List<String> args = [
-    "-Dsonar.projectKey=${projectKey}",
-    "-Dsonar.projectName=${projectName}",
-    "-Dsonar.projectVersion=${projectVersion}",
-    "-Dsonar.sources=${sources}",
-  ]
-  if (binaries) {
-    args += "-Dsonar.java.binaries=${binaries}"
-  }
-  (cfg.extraProps ?: [:]).each { k, v ->
-    args += "-D${k}=${v}"
-  }
+    // 4. Build arguments list
+    def args = [
+        "-Dsonar.projectKey=${projectKey}",
+        "-Dsonar.projectName=${projectName}",
+        "-Dsonar.projectVersion=${projectVersion}",
+        "-Dsonar.sources=${sources}"
+    ]
+    
+    if (binaries) {
+        args << "-Dsonar.java.binaries=${binaries}"
+    }
 
-  // --- Resolve scanner path and run inside SonarQube env (URL/token from Jenkins config) ---
-  def scannerHome = tool name: scannerTool, type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-  withSonarQubeEnv(serverName) {
-    sh "${scannerHome}/bin/sonar-scanner ${args.join(' ')}"
-  }
+    // Add any extra properties passed in
+    cfg.extraProps?.each { k, v ->
+        args << "-D${k}=${v}"
+    }
+
+    // 5. Execution
+    // This finds the path to the sonar-scanner binary installed in Jenkins Tools
+    def scannerHome = tool name: scannerTool, type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+    
+    // This injects the SONAR_HOST_URL and SONAR_AUTH_TOKEN from Jenkins System Config
+    withSonarQubeEnv(serverName) {
+        sh "${scannerHome}/bin/sonar-scanner ${args.join(' ')}"
+    }
 }
